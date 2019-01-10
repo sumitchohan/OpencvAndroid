@@ -12,6 +12,7 @@ import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.SurfaceView;
+import android.view.View;
 import android.view.WindowManager;
 import android.widget.TextView;
 
@@ -22,6 +23,7 @@ import org.opencv.android.LoaderCallbackInterface;
 import org.opencv.android.OpenCVLoader;
 import org.opencv.android.Utils;
 import org.opencv.core.DMatch;
+import org.opencv.core.KeyPoint;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfByte;
 import org.opencv.core.MatOfDMatch;
@@ -39,7 +41,8 @@ import java.util.LinkedList;
 import java.util.List;
 
 
-public class MainActivity extends Activity implements CameraBridgeViewBase.CvCameraViewListener2 {
+public class MainActivity extends AppCompatActivity //Activity implements CameraBridgeViewBase.CvCameraViewListener2//
+{
 
     private static final String TAG = "OCVSample::Activity";
     private static final int REQUEST_PERMISSION = 100;
@@ -52,15 +55,10 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
     DescriptorExtractor descriptor;
     DescriptorMatcher matcher;
     Mat descriptors2,descriptors1;
-    Mat img1;
+    Mat img1, img2;
     MatOfKeyPoint keypoints1,keypoints2;
+    KeyPoint[] keyPoints1Arr;
 
-    static {
-        if (!OpenCVLoader.initDebug())
-            Log.d("ERROR", "Unable to load OpenCV");
-        else
-            Log.d("SUCCESS", "OpenCV loaded");
-    }
 
     private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
         @Override
@@ -68,9 +66,9 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
             switch (status) {
                 case LoaderCallbackInterface.SUCCESS: {
                     Log.i(TAG, "OpenCV loaded successfully");
-                    mOpenCvCameraView.enableView();
+                    //mOpenCvCameraView.enableView();
                     try {
-                        initializeOpenCVDependencies();
+                        processRequest("/sdcard/");
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
@@ -83,16 +81,16 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
             }
         }
     };
-
-    private void initializeOpenCVDependencies() throws IOException {
-        mOpenCvCameraView.enableView();
+    public void sendMessage(View view) {
+        Process();
+    }
+    private void processRequest(String imagePath) throws IOException {
+        //mOpenCvCameraView.enableView();
         detector = FeatureDetector.create(FeatureDetector.ORB);
         descriptor = DescriptorExtractor.create(DescriptorExtractor.ORB);
         matcher = DescriptorMatcher.create(DescriptorMatcher.BRUTEFORCE_HAMMING);
         img1 = new Mat();
-        AssetManager assetManager = getAssets();
-        InputStream istr = assetManager.open("a.jpeg");
-        Bitmap bitmap = BitmapFactory.decodeStream(istr);
+        Bitmap bitmap = BitmapFactory.decodeFile(imagePath);
         Utils.bitmapToMat(bitmap, img1);
         Imgproc.cvtColor(img1, img1, Imgproc.COLOR_RGB2GRAY);
         img1.convertTo(img1, 0); //converting the image to match with the type of the cameras image
@@ -100,6 +98,12 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
         keypoints1 = new MatOfKeyPoint();
         detector.detect(img1, keypoints1);
         descriptor.compute(img1, keypoints1, descriptors1);
+        keyPoints1Arr= keypoints1.toArray();
+
+        detector = FeatureDetector.create(FeatureDetector.ORB);
+        descriptor = DescriptorExtractor.create(DescriptorExtractor.ORB);
+        matcher = DescriptorMatcher.create(DescriptorMatcher.BRUTEFORCE_HAMMING);
+        String location= locate("/sdcard/mail.png");
 
     }
 
@@ -124,9 +128,9 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, REQUEST_PERMISSION);
         }
 
-        mOpenCvCameraView = (CameraBridgeViewBase) findViewById(R.id.tutorial1_activity_java_surface_view);
-        mOpenCvCameraView.setVisibility(SurfaceView.VISIBLE);
-        mOpenCvCameraView.setCvCameraViewListener(this);
+        //mOpenCvCameraView = (CameraBridgeViewBase) findViewById(R.id.tutorial1_activity_java_surface_view);
+        //mOpenCvCameraView.setVisibility(SurfaceView.VISIBLE);
+        //mOpenCvCameraView.setCvCameraViewListener(this);
         tvName = (TextView) findViewById(R.id.text1);
 
     }
@@ -141,6 +145,13 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
     @Override
     public void onResume() {
         super.onResume();
+    }
+
+
+
+    public void Process()
+    {
+
         if (!OpenCVLoader.initDebug()) {
             Log.d(TAG, "Internal OpenCV library not found. Using OpenCV Manager for initialization");
             OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION_3_0_0, this, mLoaderCallback);
@@ -150,35 +161,21 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
         }
     }
 
-    public void onDestroy() {
-        super.onDestroy();
-        if (mOpenCvCameraView != null)
-            mOpenCvCameraView.disableView();
-    }
-
-    public void onCameraViewStarted(int width, int height) {
-        w = width;
-        h = height;
-    }
-
-    public void onCameraViewStopped() {
-    }
-
-    public Mat recognize(Mat aInputFrame) {
-
-        Imgproc.cvtColor(aInputFrame, aInputFrame, Imgproc.COLOR_RGB2GRAY);
+    public String locate (String imagePath) throws IOException {
+        img2 = new Mat();
+        Bitmap bitmap = BitmapFactory.decodeFile(imagePath);
+        Utils.bitmapToMat(bitmap, img2);
+        Imgproc.cvtColor(img2, img2, Imgproc.COLOR_RGB2GRAY);
+        img2.convertTo(img2, 0); //converting the image to match with the type of the cameras image
         descriptors2 = new Mat();
         keypoints2 = new MatOfKeyPoint();
-        detector.detect(aInputFrame, keypoints2);
-        descriptor.compute(aInputFrame, keypoints2, descriptors2);
+        detector.detect(img2, keypoints2);
+        descriptor.compute(img2, keypoints2, descriptors2);
 
         // Matching
         MatOfDMatch matches = new MatOfDMatch();
-        if (img1.type() == aInputFrame.type()) {
-            matcher.match(descriptors1, descriptors2, matches);
-        } else {
-            return aInputFrame;
-        }
+
+        matcher.match(descriptors1, descriptors2, matches);
         List<DMatch> matchesList = matches.toList();
 
         Double max_dist = 0.0;
@@ -191,28 +188,30 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
             if (dist > max_dist)
                 max_dist = dist;
         }
+        double sum_x=0;
+        int count=0;
+        double sum_y=0;
 
         LinkedList<DMatch> good_matches = new LinkedList<DMatch>();
         for (int i = 0; i < matchesList.size(); i++) {
-            if (matchesList.get(i).distance <= (1.5 * min_dist))
+            if (matchesList.get(i).distance <= (1.5 * min_dist)) {
                 good_matches.addLast(matchesList.get(i));
-        }
+                count++;
+                sum_x=sum_x+keyPoints1Arr[matchesList.get(i).queryIdx].pt.x;
+                sum_y=sum_y+keyPoints1Arr[matchesList.get(i).queryIdx].pt.y;
 
-        MatOfDMatch goodMatches = new MatOfDMatch();
-        goodMatches.fromList(good_matches);
-        Mat outputImg = new Mat();
-        MatOfByte drawnMatches = new MatOfByte();
-        if (aInputFrame.empty() || aInputFrame.cols() < 1 || aInputFrame.rows() < 1) {
-            return aInputFrame;
+            }
         }
-        Features2d.drawMatches(img1, keypoints1, aInputFrame, keypoints2, goodMatches, outputImg, GREEN, RED, drawnMatches, Features2d.NOT_DRAW_SINGLE_POINTS);
-        Imgproc.resize(outputImg, outputImg, aInputFrame.size());
-
-        return outputImg;
+        if(count==0)
+        {
+            count++;
+        }
+        double avg_x=sum_x/count;
+        double avg_y=sum_y/count;
+        String result=String.valueOf(avg_x)+","+String.valueOf(avg_y);
+        return result;
     }
 
-    public Mat onCameraFrame(CvCameraViewFrame inputFrame) {
-        return recognize(inputFrame.rgba());
 
-    }
+
 }
