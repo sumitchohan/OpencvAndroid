@@ -57,6 +57,10 @@ public class MyIntentService extends IntentService {
     String itemImgPaths="";
     String directoryPath="";
     String resultsFilePath="";
+    String input_offset_x="";
+    String input_offset_y="";
+    String input_width="";
+    String input_height="";
     public MyIntentService() {
         super("MyIntentService");
     }
@@ -69,6 +73,10 @@ public class MyIntentService extends IntentService {
             itemImgPaths= intent.getExtras().getString("itemImgPaths");;
             directoryPath= intent.getExtras().getString("directoryPath");;
             resultsFilePath= intent.getExtras().getString("resultsFilePath");;
+            input_offset_x= intent.getExtras().getString("input_offset_x");;
+            input_offset_y= intent.getExtras().getString("input_offset_y");;
+            input_width= intent.getExtras().getString("input_width");;
+            input_height= intent.getExtras().getString("input_height");;
             Process();
         }
     }
@@ -81,7 +89,8 @@ public class MyIntentService extends IntentService {
                     //mOpenCvCameraView.enableView();
                     try {
                         //processRequest("/sdcard/icon_bar.png"));
-                        processRequest(screenImgPath,itemImgPaths,directoryPath,resultsFilePath);
+                        processRequest(screenImgPath,itemImgPaths,directoryPath,resultsFilePath, input_offset_x,input_offset_y,
+                                input_width,input_height);
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
@@ -106,12 +115,21 @@ public class MyIntentService extends IntentService {
     }
 
 
-    private void processRequest(String imagePath, String imgItemsPaths, String directoryPath, String resultsFilePath) throws IOException {
+    private void processRequest(String imagePath, String imgItemsPaths, String directoryPath, String resultsFilePath,
+                                String input_offset_x,
+                                String input_offset_y,
+                                String input_width,
+                                String input_height) throws IOException {
+
         detector = FeatureDetector.create(FeatureDetector.ORB);
         descriptor = DescriptorExtractor.create(DescriptorExtractor.ORB);
         matcher = DescriptorMatcher.create(DescriptorMatcher.BRUTEFORCE_HAMMING);
         img1 = new Mat();
-        Bitmap bitmap = BitmapFactory.decodeFile(directoryPath+"/"+imagePath);
+        Bitmap fullBitMap=BitmapFactory.decodeFile(directoryPath+"/"+imagePath);
+        Bitmap bitmap = Bitmap.createBitmap(fullBitMap, Integer.parseInt(input_offset_x),
+                Integer.parseInt(input_offset_y),
+                Integer.parseInt(input_width),
+                Integer.parseInt(input_height));
         Utils.bitmapToMat(bitmap, img1);
         Imgproc.cvtColor(img1, img1, Imgproc.COLOR_RGB2GRAY);
         img1.convertTo(img1, 0); //converting the image to match with the type of the cameras image
@@ -124,12 +142,12 @@ public class MyIntentService extends IntentService {
         descriptor = DescriptorExtractor.create(DescriptorExtractor.ORB);
         matcher = DescriptorMatcher.create(DescriptorMatcher.BRUTEFORCE_HAMMING);
         String[] itemImgPaths=imgItemsPaths.split(",");
-        String results="#item_x=x && item_y=y ";
+        String results="isTroopPresent=\"n\"\n#Choose $1 item x y";
         for (int i=0;i<itemImgPaths.length;i++)
         {
             if(itemImgPaths[i].trim()!="")
             {
-                String location=itemImgPaths[i].trim()+"="+ locate(directoryPath+"/"+itemImgPaths[i].trim());
+                String location= locate(directoryPath+"/"+itemImgPaths[i].trim()+".png",itemImgPaths[i].trim());
                 results=results+"\n"+location;
             }
         }
@@ -137,7 +155,7 @@ public class MyIntentService extends IntentService {
         writeUsingOutputStream("y",directoryPath+"/intent_completed");
     }
 
-    public String locate (String imagePath) throws IOException {
+    public String locate (String imagePath, String itemName) throws IOException {
         img2 = new Mat();
         Bitmap bitmap = BitmapFactory.decodeFile(imagePath);
         Utils.bitmapToMat(bitmap, img2);
@@ -150,6 +168,10 @@ public class MyIntentService extends IntentService {
 
         // Matching
         MatOfDMatch matches = new MatOfDMatch();
+        if(descriptors2.cols()==0)
+        {
+            return "#no_Cols found for " + itemName;
+        }
 
         matcher.match(descriptors1, descriptors2, matches);
         List<DMatch> matchesList = matches.toList();
@@ -182,9 +204,9 @@ public class MyIntentService extends IntentService {
         {
             count++;
         }
-        double avg_x=sum_x/count;
-        double avg_y=sum_y/count;
-        String result=String.valueOf(avg_x)+","+String.valueOf(avg_y);
+        int avg_x=Integer.parseInt(input_offset_x) + (int)  sum_x/count;
+        int avg_y=Integer.parseInt(input_offset_y) +  (int) sum_y/count;
+        String result="Choose $1 \""+itemName+"\" "+String.valueOf(avg_x)+" "+String.valueOf(avg_y);
         return result;
     }
 
